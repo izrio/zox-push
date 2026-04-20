@@ -1,0 +1,160 @@
+<template>
+  <view class="page">
+    <view v-if="loading" class="panel">
+      <text class="title">正在加载消息详情</text>
+    </view>
+
+    <view v-else-if="errorText.length > 0" class="panel error-panel">
+      <text class="title">加载失败</text>
+      <text class="body">{{ errorText }}</text>
+    </view>
+
+    <view v-else class="panel">
+      <view class="header">
+        <text class="badge">{{ msgtype }}</text>
+        <text class="meta">{{ createdAt }}</text>
+      </view>
+
+      <text class="title">{{ title }}</text>
+      <text class="meta">接收人：{{ touser }}</text>
+
+      <image
+        v-if="hasImage"
+        class="detail-image"
+        :src="imageUrl"
+        mode="widthFix"
+      />
+
+      <text v-if="hasContent" class="body">
+        {{ contentText }}
+      </text>
+
+      <text v-else-if="hasImage" class="body">
+        这是一条图片消息，图片内容已展示在上方。
+      </text>
+
+      <text v-else class="body">当前消息没有可展示的正文内容。</text>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { fetchMessageDetail } from '@/common/api.uts'
+
+export default {
+  data() {
+    return {
+      loading: true,
+      errorText: "",
+      messageId: "",
+      msgtype: "",
+      title: "",
+      touser: "",
+      createdAt: "",
+      contentText: "",
+      imageUrl: "",
+      hasContent: false,
+      hasImage: false,
+    }
+  },
+  onLoad(options : UTSJSONObject) {
+    this.messageId = ((options["id"] as string | null) ?? "")
+    this.loadDetail()
+  },
+  methods: {
+    loadDetail() {
+      if (this.messageId.length == 0) {
+        this.loading = false
+        this.errorText = "缺少消息 ID"
+        return
+      }
+
+      this.loading = true
+      fetchMessageDetail(this.messageId, (item) => {
+        this.msgtype = getStringField(item, "msgtype")
+        this.title = getStringField(item, "title")
+        this.touser = getStringField(item, "touser")
+        this.createdAt = getStringField(item, "created_at")
+        this.contentText = getStringField(item, "content")
+        this.imageUrl = getStringField(item, "image_data_url")
+        this.hasContent = this.contentText.length > 0
+        this.hasImage = this.imageUrl.length > 0
+        this.errorText = ""
+        this.loading = false
+      }, (message) => {
+        this.errorText = message
+        this.loading = false
+      })
+    },
+  },
+}
+
+function getStringField(item : UTSJSONObject, key : string) : string {
+  const value = item[key] as string | null
+  return value == null ? "" : value
+}
+</script>
+
+<style>
+.page {
+  padding: 20px;
+  box-sizing: border-box;
+  background-color: #f3f6fb;
+}
+
+.panel {
+  padding: 20px;
+  border-radius: 18px;
+  background-color: #ffffff;
+}
+
+.error-panel {
+  border-width: 1px;
+  border-style: solid;
+  border-color: #d96c6c;
+}
+
+.header {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: #d7ecff;
+  font-size: 12px;
+  color: #1b4965;
+}
+
+.meta {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 18px;
+  color: #7b8da0;
+}
+
+.title {
+  margin-top: 14px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 32px;
+  color: #14213d;
+}
+
+.body {
+  margin-top: 18px;
+  font-size: 15px;
+  line-height: 24px;
+  color: #41586f;
+  white-space: pre-wrap;
+}
+
+.detail-image {
+  width: 100%;
+  margin-top: 18px;
+  border-radius: 14px;
+  background-color: #eef3f8;
+}
+</style>

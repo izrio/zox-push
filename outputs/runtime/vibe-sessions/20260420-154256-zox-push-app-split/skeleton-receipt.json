@@ -1,0 +1,18 @@
+{
+  "repo_shape": {
+    "has_backend_dir": false,
+    "has_frontend_dir": false,
+    "has_docs_dir": false,
+    "current_branch": "main",
+    "remote": "origin"
+  },
+  "existing_runtime": {
+    "backend_stack": "Flask + requests + gunicorn",
+    "tests": "pytest",
+    "deployment": "Dockerfile + docker-compose.yml"
+  },
+  "prerequisites": {
+    "python311_available": true,
+    "docker_available": false
+  }
+}

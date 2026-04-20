@@ -77,3 +77,40 @@ def test_image_message_request(tmp_path: Path) -> None:
     assert response.status_code == 200
     assert response.get_json()["msgtype"] == "image"
     assert fake_client.calls == [("image", image_base64, "zhangsan")]
+
+
+def test_send_message_is_persisted_for_app_api(tmp_path: Path) -> None:
+    app, fake_client = build_test_app(tmp_path)
+    client = app.test_client()
+
+    send_response = client.post(
+        "/send/test-key",
+        json={"msgtype": "text", "title": "任务完成", "text": "备份已结束"},
+    )
+
+    assert send_response.status_code == 200
+    payload = send_response.get_json()
+    message_id = payload["message"]["id"]
+    assert fake_client.calls == [("text", "任务完成\n备份已结束", "@all")]
+
+    list_response = client.get("/api/messages")
+    assert list_response.status_code == 200
+    list_payload = list_response.get_json()
+    assert len(list_payload["items"]) == 1
+    assert list_payload["items"][0]["id"] == message_id
+    assert list_payload["items"][0]["title"] == "任务完成"
+
+    detail_response = client.get(f"/api/messages/{message_id}")
+    assert detail_response.status_code == 200
+    detail_payload = detail_response.get_json()
+    assert detail_payload["item"]["content"] == "任务完成\n备份已结束"
+
+
+def test_get_missing_message_returns_404(tmp_path: Path) -> None:
+    app, _ = build_test_app(tmp_path)
+    client = app.test_client()
+
+    response = client.get("/api/messages/not-found")
+
+    assert response.status_code == 404
+    assert response.get_json()["ok"] is False

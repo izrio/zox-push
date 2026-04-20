@@ -1,65 +1,41 @@
 # zox-push
 
-一个最小可用的企业微信推送服务，形态类似 Server 酱：
+一个拆分后的自建推送项目：
 
-- 容器首次启动时自动生成 `send key`
-- 通过 `GET` 或 `POST` 请求 `/send/{key}` 触发推送
-- 支持 `text`、`markdown`、`image`
-- `send key` 会持久化到挂载目录，重启容器不会变化
+- `backend/`：Flask 后端，负责接收推送、转发企业微信、持久化消息、提供 App 读取 API
+- `frontend/`：uni-app x 移动端项目，负责在 Android 与 iOS 上展示消息列表与详情
 
-## 环境变量
+## 目录结构
 
-| 变量名 | 必填 | 说明 |
-| --- | --- | --- |
-| `WECOM_CID` | 是 | 企业 ID |
-| `WECOM_AID` | 是 | 企业微信应用 AgentId |
-| `WECOM_SECRET` | 是 | 企业微信应用 Secret |
-| `DEFAULT_TOUSER` | 否 | 默认接收人，默认 `@all` |
-| `DATA_DIR` | 否 | 数据目录，默认 `/data` |
-| `PUBLIC_BASE_URL` | 否 | 公网访问前缀，用于在日志里打印完整发送地址 |
+```text
+.
+├── backend/        # Python 后端
+├── frontend/       # uni-app x 前端
+├── data/           # 运行时数据目录，保存 send key 与消息记录
+├── docker-compose.yml
+└── .env
+```
 
-## 启动
-
-### Docker Compose
+## 后端启动
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入你的企业微信参数
+# 编辑 .env，填入企业微信配置
 
 docker compose up -d --build
 ```
 
-首次启动后，查看日志获取发送路径：
+后端默认端口是 `38127`，首次启动会在 `./data/send_key.json` 生成发送密钥。
+
+查看日志：
 
 ```bash
-docker logs zox-push
+docker compose logs -f
 ```
 
-也可以直接查看持久化文件：
+## 后端接口
 
-```bash
-cat ./data/send_key.json
-```
-
-示例内容：
-
-```json
-{
-  "send_key": "Q1x2y3z4..."
-}
-```
-
-对应发送地址：
-
-```text
-http://你的域名:38127/send/Q1x2y3z4...
-```
-
-## API
-
-### 1. 类似 Server 酱的 Markdown 推送
-
-当同时传 `text` + `desp` 时，会自动按 Markdown 发送：
+### 发送消息
 
 ```bash
 curl -X POST "http://127.0.0.1:38127/send/<your-key>" \
@@ -70,85 +46,64 @@ curl -X POST "http://127.0.0.1:38127/send/<your-key>" \
   }'
 ```
 
-### 2. 普通文本推送
+### 消息列表
 
 ```bash
-curl "http://127.0.0.1:38127/send/<your-key>?msgtype=text&text=hello"
+curl "http://127.0.0.1:38127/api/messages"
 ```
 
-也支持标题 + 正文：
+### 消息详情
 
 ```bash
-curl -X POST "http://127.0.0.1:38127/send/<your-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "msgtype": "text",
-    "title": "任务完成",
-    "text": "备份已结束"
-  }'
+curl "http://127.0.0.1:38127/api/messages/<message-id>"
 ```
 
-### 3. Markdown 推送
+## 前端运行
 
-```bash
-curl -X POST "http://127.0.0.1:38127/send/<your-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "msgtype": "markdown",
-    "title": "日报",
-    "desp": "- 成功 120\n- 失败 3"
-  }'
-```
+`frontend/` 是一个 uni-app x 项目骨架，建议使用支持 uni-app x 的 HBuilderX 打开。
 
-### 4. 图片推送
+运行前先修改：
 
-先把图片转成 Base64，再调用：
+- [frontend/common/config.uts](/Users/chuxionglong/.superset/projects/zox-push/frontend/common/config.uts)
 
-```bash
-curl -X POST "http://127.0.0.1:38127/send/<your-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "msgtype": "image",
-    "image_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
-  }'
-```
-
-如果是 Data URL，也支持：
+把 `API_BASE_URL` 改成你的服务器真实地址，例如：
 
 ```text
-data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+http://192.168.1.10:38127
 ```
 
-## 请求参数
+不要在真机上继续使用 `127.0.0.1`，否则手机会访问到它自己，而不是你的服务器。
 
-| 参数 | 必填 | 说明 |
+之后：
+
+1. 用 HBuilderX 打开 `frontend/`
+2. 运行到 Android 模拟器、Android 真机，或 iOS 设备
+3. 首页会读取消息列表，点击进入详情页
+
+## 环境变量
+
+| 变量名 | 必填 | 说明 |
 | --- | --- | --- |
-| `msgtype` | 否 | `auto` / `text` / `markdown` / `image`，默认 `auto` |
-| `touser` | 否 | 指定接收人，不传则走 `DEFAULT_TOUSER` |
-| `title` | 否 | 标题 |
-| `text` | 否 | 文本内容；当与 `desp` 同时存在时，会被视为 Markdown 标题 |
-| `desp` | 否 | Markdown 正文 |
-| `image_base64` | 否 | Base64 图片内容，仅 `image` 类型需要 |
+| `WECOM_CID` | 是 | 企业微信企业 ID |
+| `WECOM_AID` | 是 | 企业微信应用 AgentId |
+| `WECOM_SECRET` | 是 | 企业微信应用 Secret |
+| `DEFAULT_TOUSER` | 否 | 默认接收人，默认 `@all` |
+| `PORT` | 否 | 服务监听端口，默认 `38127` |
+| `DATA_DIR` | 否 | 数据目录，默认 `/data` |
+| `REQUEST_TIMEOUT` | 否 | 企业微信接口超时秒数，默认 `10` |
+| `PUBLIC_BASE_URL` | 否 | 启动时用于日志输出完整发送地址 |
 
-## 返回示例
+## 验证
 
-```json
-{
-  "ok": true,
-  "msgtype": "markdown",
-  "touser": "@all",
-  "wecom": {
-    "errcode": 0,
-    "errmsg": "ok"
-  }
-}
-```
-
-## 本地开发
+后端测试：
 
 ```bash
-python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pytest
+PYTHONPATH=backend pytest backend/tests
 ```
+
+说明：
+
+- 当前仓库已验证后端测试与应用工厂启动。
+- 当前仓库未验证 uni-app x 真机构建。
+- 当前环境没有 `docker` 命令，因此未验证 Docker 实构建。

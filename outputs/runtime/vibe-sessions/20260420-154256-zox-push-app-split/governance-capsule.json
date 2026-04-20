@@ -1,0 +1,9 @@
+{
+  "run_id": "20260420-154256-zox-push-app-split",
+  "runtime": "vibe",
+  "mode": "interactive_governed",
+  "lane": "root_governed",
+  "entry": "$vibe",
+  "started_at": "2026-04-20T15:42:56+08:00",
+  "repo_root": "/Users/chuxionglong/.superset/projects/zox-push"
+}

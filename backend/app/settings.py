@@ -8,10 +8,13 @@ from pathlib import Path
 
 
 SEND_KEY_FILENAME = "send_key.json"
+MESSAGE_STORE_FILENAME = "messages.json"
 
 
 @dataclass(frozen=True)
 class Settings:
+    """后端运行配置。"""
+
     wecom_cid: str
     wecom_aid: int
     wecom_secret: str

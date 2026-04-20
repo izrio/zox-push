@@ -1,0 +1,64 @@
+import { API_BASE_URL, isApiBaseUrlConfigured } from './config.uts'
+
+export function getApiBaseUrl() : string {
+  return API_BASE_URL
+}
+
+export function canRequestBackend() : boolean {
+  return isApiBaseUrlConfigured()
+}
+
+export function fetchMessageList(
+  success: (items: UTSJSONObject[]) => void,
+  fail: (message: string) => void,
+) : void {
+  requestJson("/api/messages", (data : UTSJSONObject) => {
+    const items = data["items"] as UTSJSONObject[]
+    success(items)
+  }, fail)
+}
+
+export function fetchMessageDetail(
+  messageId: string,
+  success: (item: UTSJSONObject) => void,
+  fail: (message: string) => void,
+) : void {
+  requestJson("/api/messages/" + messageId, (data : UTSJSONObject) => {
+    const item = data["item"] as UTSJSONObject
+    success(item)
+  }, fail)
+}
+
+function requestJson(
+  path: string,
+  success: (data: UTSJSONObject) => void,
+  fail: (message: string) => void,
+) : void {
+  if (!canRequestBackend()) {
+    fail("请先在 common/config.uts 中配置可访问的 API_BASE_URL")
+    return
+  }
+
+  uni.request({
+    url: API_BASE_URL + path,
+    method: "GET",
+    success: (response) => {
+      if (response.statusCode != 200) {
+        fail("请求失败，HTTP 状态码：" + response.statusCode)
+        return
+      }
+
+      const payload = response.data as UTSJSONObject
+      const ok = payload["ok"] as boolean
+      if (!ok) {
+        fail((payload["error"] as string | null) ?? "后端返回失败")
+        return
+      }
+
+      success(payload)
+    },
+    fail: (error) => {
+      fail("请求失败：" + error.errMsg)
+    },
+  })
+}

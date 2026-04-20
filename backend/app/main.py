@@ -4,8 +4,9 @@ import os
 import secrets
 from typing import Any
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
+from .message_store import MessageStore
 from .settings import Settings, load_or_create_send_key
 from .wecom import WeComClient, WeComError
 
@@ -20,10 +21,12 @@ def create_app(
     if send_key:
         resolved_send_key = send_key
     resolved_client = wecom_client or WeComClient(resolved_settings)
+    message_store = MessageStore(resolved_settings.data_dir)
 
     app = Flask(__name__)
     app.config["SETTINGS"] = resolved_settings
     app.config["SEND_KEY"] = resolved_send_key
+    app.config["MESSAGE_STORE"] = message_store
 
     public_base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
     send_path = f"/send/{resolved_send_key}"
@@ -47,6 +50,31 @@ def create_app(
     @app.get("/healthz")
     def healthz() -> Any:
         return jsonify({"ok": True})
+
+    @app.after_request
+    def apply_cors_headers(response: Response) -> Response:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+        return response
+
+    @app.route("/api/messages", methods=["GET", "OPTIONS"])
+    def list_messages() -> Any:
+        if request.method == "OPTIONS":
+            return ("", 204)
+
+        limit = max(1, min(int(request.args.get("limit", "50")), 200))
+        return jsonify({"ok": True, "items": message_store.list_messages(limit=limit)})
+
+    @app.route("/api/messages/<message_id>", methods=["GET", "OPTIONS"])
+    def get_message(message_id: str) -> Any:
+        if request.method == "OPTIONS":
+            return ("", 204)
+
+        item = message_store.get_message(message_id)
+        if not item:
+            return _json_error("消息不存在", 404)
+        return jsonify({"ok": True, "item": item})
 
     @app.route("/send/<path_key>", methods=["GET", "POST"])
     def send_message(path_key: str) -> Any:
@@ -74,26 +102,38 @@ def create_app(
                 if not image_base64:
                     return _json_error("msgtype=image 时必须提供 image_base64", 400)
                 result = resolved_client.send_image_base64(image_base64, touser)
+                message_content = None
             elif actual_msgtype == "markdown":
                 content = _build_markdown_content(title, desp, text)
                 if not content:
                     return _json_error("Markdown 消息内容不能为空", 400)
                 result = resolved_client.send_markdown(content, touser)
+                message_content = desp or text
             else:
                 content = _build_text_content(title, text, desp)
                 if not content:
                     return _json_error("文本消息内容不能为空", 400)
                 result = resolved_client.send_text(content, touser)
+                message_content = content
         except ValueError as exc:
             return _json_error(str(exc), 400)
         except WeComError as exc:
             return _json_error(str(exc), 502)
+
+        stored_message = message_store.create_message(
+            msgtype=actual_msgtype,
+            touser=touser,
+            title=title,
+            content=message_content,
+            image_base64=image_base64,
+        )
 
         return jsonify(
             {
                 "ok": True,
                 "msgtype": actual_msgtype,
                 "touser": touser,
+                "message": stored_message,
                 "wecom": result,
             }
         )

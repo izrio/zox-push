@@ -1,0 +1,249 @@
+<template>
+  <view class="page">
+    <view class="hero">
+      <text class="hero-title">消息中心</text>
+      <text class="hero-subtitle">读取后端保存的推送消息，支持手动刷新与基础轮询。</text>
+      <text class="hero-meta">API: {{ apiBaseUrl }}</text>
+      <button class="refresh-btn" @tap="loadMessages(true)">立即刷新</button>
+    </view>
+
+    <view v-if="errorText.length > 0" class="panel error-panel">
+      <text class="panel-title">配置或网络异常</text>
+      <text class="panel-body">{{ errorText }}</text>
+    </view>
+
+    <view v-else-if="loading && messages.length == 0" class="panel empty-panel">
+      <text class="panel-title">正在加载消息</text>
+      <text class="panel-body">后端返回后会在这里显示。</text>
+    </view>
+
+    <view v-else-if="messages.length == 0" class="panel empty-panel">
+      <text class="panel-title">还没有消息</text>
+      <text class="panel-body">先调用后端的 /send/{key} 接口发送一条消息。</text>
+    </view>
+
+    <view v-else class="list-wrap">
+      <view
+        v-for="item in messages"
+        :key="item.id"
+        class="message-card"
+        @tap="openDetail(item)"
+      >
+        <view class="message-top">
+          <text class="message-title">{{ item.title }}</text>
+          <text class="message-type">{{ item.msgtype }}</text>
+        </view>
+        <text class="message-preview">{{ item.preview }}</text>
+        <view class="message-bottom">
+          <view class="message-meta-row">
+            <text class="message-meta">接收人：{{ item.touser }}</text>
+          </view>
+          <view class="message-meta-row">
+            <text class="message-meta">{{ item.created_at }}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script lang="uts">
+import { canRequestBackend, fetchMessageList, getApiBaseUrl } from '@/common/api.uts'
+import { POLLING_INTERVAL_MS } from '@/common/config.uts'
+
+let pollingTimer : number = 0
+
+export default {
+  data() {
+    return {
+      apiBaseUrl: getApiBaseUrl(),
+      loading: false,
+      errorText: "",
+      messages: [] as UTSJSONObject[],
+    }
+  },
+  onLoad() {
+    this.loadMessages(false)
+  },
+  onShow() {
+    this.startPolling()
+  },
+  onHide() {
+    this.stopPolling()
+  },
+  onUnload() {
+    this.stopPolling()
+  },
+  onPullDownRefresh() {
+    this.loadMessages(true)
+  },
+  methods: {
+    startPolling() {
+      if (pollingTimer > 0 || !canRequestBackend()) {
+        return
+      }
+
+      pollingTimer = setInterval(() => {
+        this.loadMessages(false)
+      }, POLLING_INTERVAL_MS)
+    },
+    stopPolling() {
+      if (pollingTimer > 0) {
+        clearInterval(pollingTimer)
+        pollingTimer = 0
+      }
+    },
+    loadMessages(showToast : boolean) {
+      this.loading = true
+
+      fetchMessageList((items) => {
+        this.messages = items
+        this.loading = false
+        this.errorText = ""
+        uni.stopPullDownRefresh()
+
+        if (showToast) {
+          uni.showToast({
+            title: "刷新完成",
+            icon: "none",
+          })
+        }
+      }, (message) => {
+        this.loading = false
+        this.errorText = message
+        uni.stopPullDownRefresh()
+      })
+    },
+    openDetail(item : UTSJSONObject) {
+      const messageId = (item["id"] as string | null) ?? ""
+      if (messageId.length == 0) {
+        return
+      }
+
+      uni.navigateTo({
+        url: "/pages/detail/detail?id=" + messageId,
+      })
+    },
+  },
+}
+</script>
+
+<style>
+.page {
+  padding: 20px;
+  box-sizing: border-box;
+  background-color: #f3f6fb;
+}
+
+.hero {
+  margin-bottom: 16px;
+  padding: 20px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #13293d 0%, #1b4965 100%);
+}
+
+.hero-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.hero-subtitle {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: rgba(255, 255, 255, 0.84);
+}
+
+.hero-meta {
+  margin-top: 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.refresh-btn {
+  margin-top: 14px;
+  border-radius: 999px;
+  background-color: #f7b267;
+  color: #13293d;
+}
+
+.panel {
+  padding: 18px;
+  border-radius: 16px;
+  background-color: #ffffff;
+}
+
+.panel-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #13293d;
+}
+
+.panel-body {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: #49627a;
+}
+
+.error-panel {
+  border-width: 1px;
+  border-style: solid;
+  border-color: #d96c6c;
+}
+
+.list-wrap {
+  margin-top: 4px;
+}
+
+.message-card {
+  margin-bottom: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  background-color: #ffffff;
+}
+
+.message-top {
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.message-title {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.message-type {
+  margin-left: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background-color: #d7ecff;
+  font-size: 12px;
+  color: #1b4965;
+}
+
+.message-preview {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 22px;
+  color: #49627a;
+}
+
+.message-bottom {
+  margin-top: 14px;
+}
+
+.message-meta-row {
+  margin-top: 2px;
+}
+
+.message-meta {
+  font-size: 12px;
+  line-height: 18px;
+  color: #7b8da0;
+}
+</style>

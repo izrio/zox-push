@@ -1,6 +1,6 @@
 services:
   zox-push:
-    build: .
+    build: ./backend
     container_name: zox-push
     ports:
       - "38127:38127"
@@ -11,6 +11,8 @@ services:
       DEFAULT_TOUSER: "${DEFAULT_TOUSER:-@all}"
       PORT: "${PORT:-38127}"
       DATA_DIR: /data
+      REQUEST_TIMEOUT: "${REQUEST_TIMEOUT:-10}"
+      PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
     volumes:
       - ./data:/data
     restart: unless-stopped

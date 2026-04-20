@@ -1,0 +1,17 @@
+{
+  "phase": "verification",
+  "status": "completed",
+  "commands": [
+    "source .venv/bin/activate && PYTHONPATH=backend pytest backend/tests",
+    "source .venv/bin/activate && PYTHONPATH=backend WECOM_CID=wwtest WECOM_AID=1000001 WECOM_SECRET=secret DATA_DIR=.tmp-data python - <<'PY' ..."
+  ],
+  "results": {
+    "pytest": "5 passed",
+    "app_factory_startup": "passed"
+  },
+  "unverified": [
+    "Docker 实际构建",
+    "uni-app x 编译与真机运行",
+    "真实企业微信接口发送"
+  ]
+}

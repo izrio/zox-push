@@ -1,0 +1,11 @@
+{
+  "phase": "backend",
+  "status": "completed",
+  "changes": [
+    "将后端整体迁移到 backend/ 目录",
+    "保留 /send/{key} 接口",
+    "新增本地消息存储 MessageStore",
+    "新增 /api/messages 与 /api/messages/{id} 接口",
+    "补充后端测试到 5 条"
+  ]
+}

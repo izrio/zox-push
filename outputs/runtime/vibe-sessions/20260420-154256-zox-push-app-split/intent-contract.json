@@ -1,0 +1,34 @@
+{
+  "goal": "将当前单体推送服务拆分为 backend 与 frontend，并新增 uni-app x App 用于展示推送消息",
+  "deliverable": [
+    "backend 目录",
+    "frontend uni-app x 项目骨架",
+    "根目录编排与文档更新"
+  ],
+  "constraints": [
+    "沿用 Flask",
+    "前端使用 uni-app x",
+    "本轮不做 APNs 等系统级推送"
+  ],
+  "acceptance_criteria": [
+    "后端保留 /send/{key}",
+    "后端新增消息列表与详情 API",
+    "前端可展示消息列表与详情"
+  ],
+  "manual_spot_checks": [
+    "发送消息后检查 /api/messages",
+    "前端配置 baseURL 后查看列表与详情"
+  ],
+  "completion_language_policy": "仅对已验证步骤使用完成表述",
+  "delivery_truth_contract": "不伪造 Docker、真机或编译结果",
+  "non_goals": [
+    "原生系统推送",
+    "登录体系",
+    "数据库"
+  ],
+  "autonomy_mode": "governed-autonomous",
+  "inferred_assumptions": [
+    "App 通过 HTTP 拉取消息",
+    "MVP 默认无鉴权"
+  ]
+}

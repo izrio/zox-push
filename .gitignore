@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .env
 data/
+frontend/unpackage/
+frontend/.hbuilderx/
+.DS_Store

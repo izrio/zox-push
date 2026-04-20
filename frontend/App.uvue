@@ -1,0 +1,10 @@
+<script lang="uts">
+export default {
+  globalData: {
+    appName: "zox-push",
+  },
+  onLaunch() {
+    console.log("zox-push app launched")
+  },
+}
+</script>
