@@ -1,0 +1,16 @@
+services:
+  zox-push:
+    build: .
+    container_name: zox-push
+    ports:
+      - "38127:38127"
+    environment:
+      WECOM_CID: "${WECOM_CID}"
+      WECOM_AID: "${WECOM_AID}"
+      WECOM_SECRET: "${WECOM_SECRET}"
+      DEFAULT_TOUSER: "${DEFAULT_TOUSER:-@all}"
+      PORT: "${PORT:-38127}"
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
