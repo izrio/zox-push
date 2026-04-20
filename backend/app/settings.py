@@ -15,30 +15,14 @@ MESSAGE_STORE_FILENAME = "messages.json"
 class Settings:
     """后端运行配置。"""
 
-    wecom_cid: str
-    wecom_aid: int
-    wecom_secret: str
     data_dir: Path
     default_touser: str = "@all"
-    request_timeout: int = 10
 
     @classmethod
     def from_env(cls) -> "Settings":
-        missing = [
-            key
-            for key in ("WECOM_CID", "WECOM_AID", "WECOM_SECRET")
-            if not os.getenv(key)
-        ]
-        if missing:
-            raise RuntimeError(f"缺少必要环境变量: {', '.join(missing)}")
-
         return cls(
-            wecom_cid=os.environ["WECOM_CID"].strip(),
-            wecom_aid=int(os.environ["WECOM_AID"]),
-            wecom_secret=os.environ["WECOM_SECRET"].strip(),
             data_dir=Path(os.getenv("DATA_DIR", "/data")),
             default_touser=os.getenv("DEFAULT_TOUSER", "@all").strip() or "@all",
-            request_timeout=int(os.getenv("REQUEST_TIMEOUT", "10")),
         )
 
 

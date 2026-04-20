@@ -2,5 +2,8 @@ export const API_BASE_URL = "http://142.171.224.220:38127"
 export const POLLING_INTERVAL_MS = 15000
 
 export function isApiBaseUrlConfigured() : boolean {
-  return API_BASE_URL.indexOf("http://142.171.224.220") == -1
+  if (API_BASE_URL.length == 0) {
+    return false
+  }
+  return API_BASE_URL.indexOf("YOUR_SERVER_IP") == -1
 }

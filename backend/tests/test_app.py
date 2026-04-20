@@ -7,35 +7,14 @@ from app.main import create_app
 from app.settings import Settings
 
 
-class FakeWeComClient:
-    def __init__(self) -> None:
-        self.calls: list[tuple[str, str, str]] = []
-
-    def send_text(self, content: str, touser: str) -> dict[str, int]:
-        self.calls.append(("text", content, touser))
-        return {"errcode": 0}
-
-    def send_markdown(self, content: str, touser: str) -> dict[str, int]:
-        self.calls.append(("markdown", content, touser))
-        return {"errcode": 0}
-
-    def send_image_base64(self, base64_content: str, touser: str) -> dict[str, int]:
-        self.calls.append(("image", base64_content, touser))
-        return {"errcode": 0}
-
-
 def build_test_app(tmp_path: Path) -> tuple:
     settings = Settings(
-        wecom_cid="cid",
-        wecom_aid=1000001,
-        wecom_secret="secret",
         data_dir=tmp_path,
         default_touser="@all",
     )
-    fake_client = FakeWeComClient()
-    app = create_app(settings=settings, wecom_client=fake_client, send_key="test-key")
+    app = create_app(settings=settings, send_key="test-key")
     app.testing = True
-    return app, fake_client
+    return app, None
 
 
 def test_reject_invalid_send_key(tmp_path: Path) -> None:
@@ -49,7 +28,7 @@ def test_reject_invalid_send_key(tmp_path: Path) -> None:
 
 
 def test_serverchan_style_markdown_request(tmp_path: Path) -> None:
-    app, fake_client = build_test_app(tmp_path)
+    app, _ = build_test_app(tmp_path)
     client = app.test_client()
 
     response = client.post(
@@ -59,13 +38,12 @@ def test_serverchan_style_markdown_request(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.get_json()["msgtype"] == "markdown"
-    assert fake_client.calls == [
-        ("markdown", "# 告警标题\n\n服务异常，请尽快处理。", "@all")
-    ]
+    assert response.get_json()["message"]["title"] == "告警标题"
+    assert response.get_json()["message"]["content"] == "服务异常，请尽快处理。"
 
 
 def test_image_message_request(tmp_path: Path) -> None:
-    app, fake_client = build_test_app(tmp_path)
+    app, _ = build_test_app(tmp_path)
     client = app.test_client()
 
     image_base64 = base64.b64encode(b"fake-image").decode("utf-8")
@@ -76,11 +54,12 @@ def test_image_message_request(tmp_path: Path) -> None:
 
     assert response.status_code == 200
     assert response.get_json()["msgtype"] == "image"
-    assert fake_client.calls == [("image", image_base64, "zhangsan")]
+    assert response.get_json()["message"]["touser"] == "zhangsan"
+    assert response.get_json()["message"]["image_base64"] == image_base64
 
 
 def test_send_message_is_persisted_for_app_api(tmp_path: Path) -> None:
-    app, fake_client = build_test_app(tmp_path)
+    app, _ = build_test_app(tmp_path)
     client = app.test_client()
 
     send_response = client.post(
@@ -91,7 +70,6 @@ def test_send_message_is_persisted_for_app_api(tmp_path: Path) -> None:
     assert send_response.status_code == 200
     payload = send_response.get_json()
     message_id = payload["message"]["id"]
-    assert fake_client.calls == [("text", "任务完成\n备份已结束", "@all")]
 
     list_response = client.get("/api/messages")
     assert list_response.status_code == 200
@@ -114,3 +92,14 @@ def test_get_missing_message_returns_404(tmp_path: Path) -> None:
 
     assert response.status_code == 404
     assert response.get_json()["ok"] is False
+
+
+def test_create_app_without_wecom_env_vars(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("WECOM_CID", raising=False)
+    monkeypatch.delenv("WECOM_AID", raising=False)
+    monkeypatch.delenv("WECOM_SECRET", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+
+    app = create_app()
+
+    assert app.config["SEND_KEY"]

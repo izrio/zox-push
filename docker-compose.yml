@@ -5,13 +5,9 @@ services:
     ports:
       - "38127:38127"
     environment:
-      WECOM_CID: "${WECOM_CID}"
-      WECOM_AID: "${WECOM_AID}"
-      WECOM_SECRET: "${WECOM_SECRET}"
       DEFAULT_TOUSER: "${DEFAULT_TOUSER:-@all}"
       PORT: "${PORT:-38127}"
       DATA_DIR: /data
-      REQUEST_TIMEOUT: "${REQUEST_TIMEOUT:-10}"
       PUBLIC_BASE_URL: "${PUBLIC_BASE_URL:-}"
     volumes:
       - ./data:/data

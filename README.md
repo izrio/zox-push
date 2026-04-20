@@ -2,7 +2,7 @@
 
 一个拆分后的自建推送项目：
 
-- `backend/`：Flask 后端，负责接收推送、转发企业微信、持久化消息、提供 App 读取 API
+- `backend/`：Flask 后端，负责接收推送、持久化消息、提供 App 读取 API
 - `frontend/`：uni-app x 移动端项目，负责在 Android 与 iOS 上展示消息列表与详情
 
 ## 目录结构
@@ -20,10 +20,31 @@
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入企业微信配置
+# 如需修改默认接收人或公网地址，再编辑 .env
 
 docker compose up -d --build
 ```
+
+如果服务器已经克隆了仓库，也可以直接使用快速部署脚本：
+
+```bash
+bash scripts/deploy-backend.sh
+```
+
+默认会部署当前分支；如果要显式指定分支，例如 `main`：
+
+```bash
+bash scripts/deploy-backend.sh main
+```
+
+脚本行为：
+
+- 检查 `git` 与 `docker`
+- 检查工作区是否干净
+- 检查 `.env` 是否存在
+- 拉取远端最新代码
+- 执行 `docker compose up -d --build`
+- 输出容器状态和最近日志
 
 后端默认端口是 `38127`，首次启动会在 `./data/send_key.json` 生成发送密钥。
 
@@ -84,13 +105,9 @@ http://192.168.1.10:38127
 
 | 变量名 | 必填 | 说明 |
 | --- | --- | --- |
-| `WECOM_CID` | 是 | 企业微信企业 ID |
-| `WECOM_AID` | 是 | 企业微信应用 AgentId |
-| `WECOM_SECRET` | 是 | 企业微信应用 Secret |
 | `DEFAULT_TOUSER` | 否 | 默认接收人，默认 `@all` |
 | `PORT` | 否 | 服务监听端口，默认 `38127` |
 | `DATA_DIR` | 否 | 数据目录，默认 `/data` |
-| `REQUEST_TIMEOUT` | 否 | 企业微信接口超时秒数，默认 `10` |
 | `PUBLIC_BASE_URL` | 否 | 启动时用于日志输出完整发送地址 |
 
 ## 验证

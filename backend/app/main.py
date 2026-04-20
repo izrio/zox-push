@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import os
 import secrets
 from typing import Any
@@ -8,19 +9,16 @@ from flask import Flask, Response, jsonify, request
 
 from .message_store import MessageStore
 from .settings import Settings, load_or_create_send_key
-from .wecom import WeComClient, WeComError
 
 
 def create_app(
     settings: Settings | None = None,
-    wecom_client: WeComClient | None = None,
     send_key: str | None = None,
 ) -> Flask:
     resolved_settings = settings or Settings.from_env()
     resolved_send_key, created, key_path = load_or_create_send_key(resolved_settings.data_dir)
     if send_key:
         resolved_send_key = send_key
-    resolved_client = wecom_client or WeComClient(resolved_settings)
     message_store = MessageStore(resolved_settings.data_dir)
 
     app = Flask(__name__)
@@ -101,31 +99,29 @@ def create_app(
             if actual_msgtype == "image":
                 if not image_base64:
                     return _json_error("msgtype=image 时必须提供 image_base64", 400)
-                result = resolved_client.send_image_base64(image_base64, touser)
+                normalized_image_base64 = _normalize_image_base64(image_base64)
                 message_content = None
             elif actual_msgtype == "markdown":
                 content = _build_markdown_content(title, desp, text)
                 if not content:
                     return _json_error("Markdown 消息内容不能为空", 400)
-                result = resolved_client.send_markdown(content, touser)
+                normalized_image_base64 = None
                 message_content = desp or text
             else:
                 content = _build_text_content(title, text, desp)
                 if not content:
                     return _json_error("文本消息内容不能为空", 400)
-                result = resolved_client.send_text(content, touser)
+                normalized_image_base64 = None
                 message_content = content
         except ValueError as exc:
             return _json_error(str(exc), 400)
-        except WeComError as exc:
-            return _json_error(str(exc), 502)
 
         stored_message = message_store.create_message(
             msgtype=actual_msgtype,
             touser=touser,
             title=title,
             content=message_content,
-            image_base64=image_base64,
+            image_base64=normalized_image_base64,
         )
 
         return jsonify(
@@ -134,7 +130,6 @@ def create_app(
                 "msgtype": actual_msgtype,
                 "touser": touser,
                 "message": stored_message,
-                "wecom": result,
             }
         )
 
@@ -190,6 +185,19 @@ def _normalize_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _normalize_image_base64(image_base64: str) -> str:
+    cleaned = image_base64.strip()
+    if "," in cleaned and cleaned.lower().startswith("data:"):
+        cleaned = cleaned.split(",", 1)[1]
+
+    try:
+        base64.b64decode(cleaned, validate=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError("image_base64 不是合法的 Base64 图片内容") from exc
+
+    return cleaned
 
 
 def _json_error(message: str, status_code: int) -> Any:
